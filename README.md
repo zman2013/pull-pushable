@@ -16,7 +16,3 @@ This package is a modification of [pull-pushable](https://github.com/pull-stream
 npm install @jacobbubu/pull-pushable
 npm run example:ex1
 ```
-
-## Features
-
-This project follows the [all-contributors](https://github.com/kentcdodds/all-contributors) specification. Contributions of any kind are welcome!
