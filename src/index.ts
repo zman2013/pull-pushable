@@ -39,14 +39,14 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   let logger = DefaultLogger.ns(_name)
 
   const end = (end?: EndOrError) => {
-    logger.debug('end has been called, end:', end)
+    logger.debug('end(end=%o) has been called', end)
     ended = ended || end || true
     // attempt to drain
     drain()
   }
 
   const push = (data: unknown) => {
-    logger.debug('push a new data, %o', { data, ended })
+    logger.info('push(data=%o), ended: %o', data, ended)
     if (ended) return
     // if sink already waiting,
     // we can call back directly.
@@ -62,7 +62,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
     endOrError: Error | boolean | null,
     _cb: (endOrError: Error | boolean | null, data: T) => any
   ) => {
-    logger.debug('read, %o', { endOrError })
+    logger.info('read(abort=%o)', endOrError)
     if (endOrError) {
       abort = endOrError
       // if there is already a cb waiting, abort it.
@@ -94,12 +94,12 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
     if (err && _onclose) {
       let c = _onclose
       _onclose = undefined
-      logger.debug('callback onClose, %o', { err: err === true ? null : err })
+      logger.debug('call onClose back with argument(%o)', err === true ? null : err)
       c(err === true ? null : err)
     }
     cb = undefined
-    logger.debug('callback, %o', { err, data })
     _cb && _cb(err, data)
+    logger.debug('callback with argument(err=%o, data=%o)', err, data)
   }
   return read
 }
