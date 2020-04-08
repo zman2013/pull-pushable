@@ -1,4 +1,3 @@
-import pull = require('pull-stream')
 import { pushable } from '../src'
 
 describe('pushable', () => {

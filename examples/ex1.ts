@@ -1,4 +1,4 @@
-import pull = require('pull-stream')
+import * as pull from 'pull-stream'
 import { pushable } from '../src'
 
 const buf = pushable()

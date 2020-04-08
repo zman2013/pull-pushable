@@ -1,3 +1,4 @@
+import pull from 'pull-stream'
 import { Debug } from '@jacobbubu/debug'
 
 const getPushableName = (function() {
@@ -5,19 +6,15 @@ const getPushableName = (function() {
   return () => (counter++).toString()
 })()
 
-type EndOrError = Error | boolean | null
-type OnClose = (err?: EndOrError) => void
+type OnClose = (err?: pull.EndOrError) => void
 
 const DefaultLogger = Debug.create('pushable')
 
 export interface Read<T> {
-  (
-    endOrError: Error | boolean | null,
-    cb: (endOrError: Error | boolean | null, data: T) => any
-  ): undefined
-  end: (end?: EndOrError) => void
-  push: (data: unknown) => void
-  buffer: any[]
+  (endOrError: pull.Abort, cb: pull.SourceCallback<T>): undefined
+  end: (end?: pull.EndOrError) => void
+  push: (data: T) => void
+  buffer: T[]
 }
 export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T> {
   let _name: string
@@ -26,8 +23,8 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
   // indicates that the downstream want's to abort the stream
   let abort: Error | boolean | null = false
-  let ended: EndOrError = null
-  let cb: ((endOrError: Error | boolean | null, data: T) => any) | undefined
+  let ended: pull.EndOrError = null
+  let cb: pull.SourceCallback<T> | undefined
 
   if (typeof name === 'function') {
     _onclose = name
@@ -38,7 +35,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   _name = name || getPushableName()
   let logger = DefaultLogger.ns(_name)
 
-  const end = (end?: EndOrError) => {
+  const end = (end?: pull.EndOrError) => {
     logger.debug('end(end=%o) has been called', end)
     ended = ended || end || true
     // attempt to drain
@@ -58,10 +55,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
     buffer.push(data)
   }
 
-  const read: Read<T> = (
-    endOrError: Error | boolean | null,
-    _cb: (endOrError: Error | boolean | null, data: T) => any
-  ) => {
+  const read: Read<T> = (endOrError: pull.EndOrError, _cb: pull.SourceCallback<T>) => {
     logger.info('read(abort=%o)', endOrError)
     if (endOrError) {
       abort = endOrError
@@ -87,7 +81,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
     else if (buffer.length) callback(null, buffer.shift())
   }
 
-  const callback = (err: EndOrError, data?: any) => {
+  const callback = (err: pull.EndOrError, data?: any) => {
     let _cb = cb
     // if error and pushable passed onClose, call it
     // the first time this stream ends or errors.
