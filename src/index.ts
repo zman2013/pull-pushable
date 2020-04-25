@@ -10,16 +10,24 @@ type OnClose = (err?: pull.EndOrError) => void
 
 const DefaultLogger = Debug.create('pushable')
 
+export enum BufferItemIndex {
+  Data = 0,
+  Cb
+}
+
+export type BufferItemCallback = (endOrError: pull.EndOrError) => void
+export type BufferItem<T> = [T?, BufferItemCallback?]
+
 export interface Read<T> {
   (endOrError: pull.Abort, cb: pull.SourceCallback<T>): undefined
   end: (end?: pull.EndOrError) => void
-  push: (data: T) => void
-  buffer: T[]
+  push: (data: T, bufferedCb?: BufferItemCallback) => void
+  buffer: BufferItem<T>[]
 }
 export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T> {
   let _name: string
   let _onclose: OnClose | undefined
-  const buffer: any[] = []
+  const buffer: BufferItem<T>[] = []
 
   // indicates that the downstream want's to abort the stream
   let abort: Error | boolean | null = false
@@ -42,27 +50,30 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
     drain()
   }
 
-  const push = (data: unknown) => {
+  const push = (data: T, bufferedCb?: BufferItemCallback) => {
     logger.info('push(data=%o), ended: %o', data, ended)
     if (ended) return
     // if sink already waiting,
     // we can call back directly.
     if (cb) {
-      callback(abort, data)
+      callback(abort, [data, bufferedCb])
       return
     }
     // otherwise buffer data
-    buffer.push(data)
+    buffer.push([data, bufferedCb])
   }
 
-  const read: Read<T> = (endOrError: pull.EndOrError, _cb: pull.SourceCallback<T>) => {
-    logger.info('read(abort=%o)', endOrError)
-    if (endOrError) {
-      abort = endOrError
+  const read: Read<T> = (_abort: pull.Abort, _cb: pull.SourceCallback<T>) => {
+    logger.info('read(abort=%o)', _abort)
+    if (_abort) {
+      abort = _abort
       // if there is already a cb waiting, abort it.
       if (cb) {
-        callback(abort)
+        callback(abort, [])
       }
+      buffer.forEach(item => {
+        item[BufferItemIndex.Cb]?.(abort)
+      })
     }
     cb = _cb
     drain()
@@ -76,12 +87,16 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   const drain = () => {
     if (!cb) return
 
-    if (abort) callback(abort)
-    else if (!buffer.length && ended) callback(ended)
-    else if (buffer.length) callback(null, buffer.shift())
+    if (abort) {
+      callback(abort)
+    } else if (buffer.length === 0 && ended) {
+      callback(ended)
+    } else if (buffer.length > 0) {
+      callback(null, buffer.shift())
+    }
   }
 
-  const callback = (err: pull.EndOrError, data?: any) => {
+  const callback = (err: pull.EndOrError, item?: BufferItem<T>) => {
     let _cb = cb
     // if error and pushable passed onClose, call it
     // the first time this stream ends or errors.
@@ -92,8 +107,16 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       c(err === true ? null : err)
     }
     cb = undefined
-    _cb && _cb(err, data)
-    logger.debug('callback with argument(err=%o, data=%o)', err, data)
+    if (err) {
+      _cb?.(err)
+      item?.[BufferItemIndex.Cb]?.(err)
+      logger.debug('callback with argument(err=%o)', err)
+    } else {
+      const [data, bufferedCb] = item!
+      _cb?.(null, data)
+      bufferedCb?.(null)
+      logger.debug('callback with argument(data=%o)', data)
+    }
   }
   return read
 }

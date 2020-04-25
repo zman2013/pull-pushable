@@ -9,7 +9,7 @@ describe('pushable', () => {
     expect(typeof buf).toBe('function')
 
     buf.push(1)
-    expect(buf.buffer).toEqual([1])
+    expect(buf.buffer).toEqual([[1, undefined]])
     pull(
       buf,
       pull.collect((_, array) => {
