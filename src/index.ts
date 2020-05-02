@@ -21,6 +21,7 @@ export type BufferItem<T> = [T?, BufferItemCallback?]
 export interface Read<T> {
   (endOrError: pull.Abort, cb: pull.SourceCallback<T>): undefined
   end: (end?: pull.EndOrError) => void
+  abort: (end?: pull.EndOrError) => void
   push: (data: T, bufferedCb?: BufferItemCallback) => void
   buffer: BufferItem<T>[]
 }
@@ -30,7 +31,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   const buffer: BufferItem<T>[] = []
 
   // indicates that the downstream want's to abort the stream
-  let abort: Error | boolean | null = false
+  let aborted: Error | boolean | null = false
   let ended: pull.EndOrError = null
   let cb: pull.SourceCallback<T> | undefined
 
@@ -46,7 +47,12 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   const end = (end?: pull.EndOrError) => {
     logger.debug('end(end=%o) has been called', end)
     ended = ended || end || true
-    // attempt to drain
+    drain()
+  }
+
+  const abort = (end?: pull.EndOrError) => {
+    logger.debug('abort(end=%o) has been called', end)
+    aborted = aborted || end || true
     drain()
   }
 
@@ -56,7 +62,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
     // if sink already waiting,
     // we can call back directly.
     if (cb) {
-      callback(abort, [data, bufferedCb])
+      callback(aborted, [data, bufferedCb])
       return
     }
     // otherwise buffer data
@@ -66,13 +72,13 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   const read: Read<T> = (_abort: pull.Abort, _cb: pull.SourceCallback<T>) => {
     logger.info('read(abort=%o)', _abort)
     if (_abort) {
-      abort = _abort
+      aborted = _abort
       // if there is already a cb waiting, abort it.
       if (cb) {
-        callback(abort, [])
+        callback(aborted, [])
       }
       buffer.forEach(item => {
-        item[BufferItemIndex.Cb]?.(abort)
+        item[BufferItemIndex.Cb]?.(aborted)
       })
     }
     cb = _cb
@@ -81,14 +87,15 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   }
 
   read.end = end
+  read.abort = abort
   read.push = push
   read.buffer = buffer
 
   const drain = () => {
     if (!cb) return
 
-    if (abort) {
-      callback(abort)
+    if (aborted) {
+      callback(aborted)
     } else if (buffer.length === 0 && ended) {
       callback(ended)
     } else if (buffer.length > 0) {

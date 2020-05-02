@@ -40,4 +40,19 @@ describe('pushable', () => {
 
     p.push(1)
   })
+
+  it('abort before push', done => {
+    const p = pushable(err => {
+      expect(err).toBeFalsy()
+    })
+
+    p(null, (err, data) => {
+      expect(err).toBeTruthy()
+      expect(data).toBeFalsy()
+      done()
+    })
+
+    p.abort()
+    p.push(1)
+  })
 })
