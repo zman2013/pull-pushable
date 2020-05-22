@@ -105,9 +105,9 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
     if (err) {
       if (!item) {
-        // clean whole buffer
+        // missing item means the caller wants to clean whole buffer
         buffer.forEach(item => {
-          item[BufferItemIndex.Cb]?.(aborted)
+          item[BufferItemIndex.Cb]?.(err)
         })
       } else {
         item[BufferItemIndex.Cb]?.(err)
