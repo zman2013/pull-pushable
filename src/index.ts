@@ -1,4 +1,4 @@
-import pull from 'pull-stream'
+import pull from '@jacobbubu/pull-stream'
 import { Debug } from '@jacobbubu/debug'
 
 const getPushableName = (function() {
