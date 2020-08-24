@@ -1,4 +1,4 @@
-import * as pull from '@jacobbubu/pull-stream'
+import * as pull from 'pull-stream'
 import { pushable } from '../src'
 
 const delay = (ms: number) => new Promise(_ => setTimeout(_, ms))
