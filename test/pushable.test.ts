@@ -3,7 +3,10 @@ import { pushable } from '../src'
 
 describe('pushable', () => {
   it('read', done => {
-    const buf = pushable()
+    const buf = pushable('name', err => {
+      expect(err).toBeNull()
+      done()
+    })
 
     // should be a read function!
     expect(typeof buf).toBe('function')
@@ -14,7 +17,6 @@ describe('pushable', () => {
       buf,
       pull.collect((_, array) => {
         expect(array).toEqual([1, 2, 3])
-        done()
       })
     )
 

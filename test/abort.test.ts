@@ -5,6 +5,7 @@ describe('pushable', () => {
     const _err = new Error('test error')
     const p = pushable(err => {
       expect(err).toBe(_err)
+      done()
     })
 
     // manual read.
@@ -12,8 +13,8 @@ describe('pushable', () => {
       expect(err).toBe(_err)
     })
 
-    p(_err, () => {
-      done()
+    p(_err, err => {
+      expect(err).toBe(_err)
     })
   })
 
@@ -21,10 +22,11 @@ describe('pushable', () => {
     const _err = new Error('test error')
     const p = pushable(err => {
       expect(err).toBe(_err)
+      done()
     })
 
-    p(_err, () => {
-      done()
+    p(_err, err => {
+      expect(err).toBe(_err)
     })
   })
 
@@ -32,10 +34,11 @@ describe('pushable', () => {
     const _err = new Error('test error')
     const p = pushable(err => {
       expect(err).toBe(_err)
+      done()
     })
 
-    p(_err, () => {
-      done()
+    p(_err, err => {
+      expect(err).toBe(_err)
     })
 
     p.push(1)
@@ -44,12 +47,12 @@ describe('pushable', () => {
   it('abort before push', done => {
     const p = pushable(err => {
       expect(err).toBeFalsy()
+      done()
     })
 
     p(null, (err, data) => {
       expect(err).toBeTruthy()
       expect(data).toBeFalsy()
-      done()
     })
 
     p.abort()
