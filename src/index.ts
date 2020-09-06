@@ -28,7 +28,7 @@ export interface Read<T> {
 export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T> {
   let _name: string
   let _onclose: OnClose | undefined
-  const _buffer: BufferItem<T>[] = []
+  let _buffer: BufferItem<T>[] = []
 
   // indicates that the downstream want's to abort the stream
   let _aborted: Error | boolean | null = false
@@ -85,11 +85,13 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       _buffer.forEach(bufferItem => {
         bufferItem[BufferItemIndex.Cb]?.(_aborted)
       })
+      _buffer = []
 
       // call of all waiting callback functions
       _cbs.forEach(cb => {
         cb(_aborted)
       })
+      _cbs = []
 
       _onclose?.(_aborted === true ? null : _aborted)
       return
@@ -113,6 +115,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       _cbs.forEach(cb => {
         cb(_ended)
       })
+      _cbs = []
 
       _onclose?.(_ended === true ? null : _ended)
     }
