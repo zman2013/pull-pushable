@@ -46,20 +46,24 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   let logger = DefaultLogger.ns(_name)
 
   const end = (end?: pull.EndOrError) => {
+    if (_askEnd || _ended) return
+
     logger.debug('end(end=%o) has been called', end)
     _askEnd = _askEnd || end || true
     drain()
   }
 
   const abort = (end?: pull.EndOrError) => {
+    if (_askAbort || _ended) return
+
     logger.debug('abort(end=%o) has been called', end)
     _askAbort = _askAbort || end || true
     drain()
   }
 
   const push = (data: T, bufferedCb?: BufferItemCallback) => {
-    logger.info('push(data=%o), ended: %o', data, _askEnd)
-    if (_askEnd) return
+    logger.info('push(data=%o), ended: %o', data, _askAbort || _askEnd || _ended)
+    if (_askAbort || _askEnd || _ended) return
 
     _buffer.push([data, bufferedCb])
     drain()
@@ -104,11 +108,10 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       _buffer = []
 
       // call of all waiting callback functions
-      _cbs.forEach(cb => {
-        cb(_askAbort)
-      })
+      while (_cbs.length > 0) {
+        _cbs.shift()?.(_askAbort)
+      }
       _ended = _askAbort
-      _cbs = []
 
       _onclose?.(_ended === true ? null : _ended)
       return
@@ -119,11 +122,10 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       if (_buffer.length > 0) return
 
       // call of all waiting callback functions
-      _cbs.forEach(cb => {
-        cb(_askEnd)
-      })
+      while (_cbs.length > 0) {
+        _cbs.shift()?.(_askEnd)
+      }
       _ended = _askEnd
-      _cbs = []
 
       _onclose?.(_ended === true ? null : _ended)
     }
