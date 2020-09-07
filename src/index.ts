@@ -31,7 +31,8 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   let _buffer: BufferItem<T>[] = []
 
   // indicates that the downstream want's to abort the stream
-  let _aborted: Error | boolean | null = false
+  let _askAbort: Error | boolean | null = false
+  let _askEnd: pull.EndOrError = null
   let _ended: pull.EndOrError = null
   let _cbs: pull.SourceCallback<T>[] = []
 
@@ -46,19 +47,19 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
   const end = (end?: pull.EndOrError) => {
     logger.debug('end(end=%o) has been called', end)
-    _ended = _ended || end || true
+    _askEnd = _askEnd || end || true
     drain()
   }
 
   const abort = (end?: pull.EndOrError) => {
     logger.debug('abort(end=%o) has been called', end)
-    _aborted = _aborted || end || true
+    _askAbort = _askAbort || end || true
     drain()
   }
 
   const push = (data: T, bufferedCb?: BufferItemCallback) => {
-    logger.info('push(data=%o), ended: %o', data, _ended)
-    if (_ended) return
+    logger.info('push(data=%o), ended: %o', data, _askEnd)
+    if (_askEnd) return
 
     _buffer.push([data, bufferedCb])
     drain()
@@ -66,10 +67,14 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
   const read: Read<T> = (abort: pull.Abort, cb: pull.SourceCallback<T>) => {
     logger.info('read(abort=%o)', abort)
+    if (_ended) {
+      return cb(_ended)
+    }
+
     _cbs.push(cb)
 
     if (abort) {
-      _aborted = abort
+      _askAbort = abort
     }
     drain()
   }
@@ -91,31 +96,33 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       }
     }
 
-    if (_aborted) {
+    if (_askAbort) {
       // in case there's still data in the _buffer
       _buffer.forEach(bufferItem => {
-        bufferItem[BufferItemIndex.Cb]?.(_aborted)
+        bufferItem[BufferItemIndex.Cb]?.(_askAbort)
       })
       _buffer = []
 
       // call of all waiting callback functions
       _cbs.forEach(cb => {
-        cb(_aborted)
+        cb(_askAbort)
       })
+      _ended = _askAbort
       _cbs = []
 
-      _onclose?.(_aborted === true ? null : _aborted)
+      _onclose?.(_ended === true ? null : _ended)
       return
     }
 
-    if (_ended) {
+    if (_askEnd) {
       // more cb is needed to satisfy the buffer
       if (_buffer.length > 0) return
 
       // call of all waiting callback functions
       _cbs.forEach(cb => {
-        cb(_ended)
+        cb(_askEnd)
       })
+      _ended = _askEnd
       _cbs = []
 
       _onclose?.(_ended === true ? null : _ended)
