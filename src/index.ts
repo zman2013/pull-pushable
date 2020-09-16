@@ -89,17 +89,6 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   read.buffer = _buffer
 
   const drain = () => {
-    while (_buffer.length > 0) {
-      const cb = _cbs.shift()
-      if (cb) {
-        const bufferItem = _buffer.shift()!
-        cb(null, bufferItem[BufferItemIndex.Data])
-        bufferItem[BufferItemIndex.Cb]?.(null)
-      } else {
-        break
-      }
-    }
-
     if (_askAbort) {
       // in case there's still data in the _buffer
       _buffer.forEach(bufferItem => {
@@ -115,6 +104,17 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
       _onclose?.(_ended === true ? null : _ended)
       return
+    }
+
+    while (_buffer.length > 0) {
+      const cb = _cbs.shift()
+      if (cb) {
+        const bufferItem = _buffer.shift()!
+        cb(null, bufferItem[BufferItemIndex.Data])
+        bufferItem[BufferItemIndex.Cb]?.(null)
+      } else {
+        break
+      }
     }
 
     if (_askEnd) {
