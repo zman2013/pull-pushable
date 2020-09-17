@@ -15,7 +15,9 @@ describe('with-callback', () => {
         cb(null, data)
       }),
       pull.take(2),
-      pull.collect(() => {
+      pull.collect((err, results) => {
+        expect(err).toBeFalsy()
+        expect(results).toEqual([1, 2])
         expect(callback).toBeCalledTimes(3)
         expect(callback.mock.results[0].value).toBeLessThan(20)
         expect(callback.mock.results[1].value).toBeGreaterThan(90)
