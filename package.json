@@ -77,6 +77,7 @@
     "singleQuote": true
   },
   "devDependencies": {
+    "@jacobbubu/pull-stream-protocol-checker": "^1.0.0",
     "@types/jest": "^24.9.1",
     "@types/node": "^12.7.12",
     "@types/pull-stream": "^3.6.2",
