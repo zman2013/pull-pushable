@@ -1,6 +1,7 @@
 import * as pull from 'pull-stream'
 import { Debug } from '@jacobbubu/debug'
 import { SourceState } from './source-state'
+import { trueToNull } from './utils'
 
 const getPushableName = (function() {
   let counter = 1
@@ -99,7 +100,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       }
 
       _sourceState.ended(abort)
-      _onclose?.(_sourceState.endReason === true ? null : _sourceState.endReason)
+      _onclose?.(trueToNull(_sourceState.finished))
       return
     }
 
@@ -124,7 +125,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
         _cbs.shift()?.(end)
       }
       _sourceState.ended(end)
-      _onclose?.(_sourceState.endReason === true ? null : _sourceState.endReason)
+      _onclose?.(trueToNull(_sourceState.finished))
     }
   }
   return read

@@ -1,17 +1,19 @@
-import { assert } from 'console'
 import * as pull from 'pull-stream'
+import { trueToNull } from './utils'
+
+export type OnEnd = (endOrError: pull.EndOrError) => void
+export interface SourceStateOption {
+  onEnd?: OnEnd
+}
 
 export class SourceState {
   private _sourceEnding: pull.EndOrError = false
   private _sourceAborting: pull.Abort = false
-
   private _endReason: pull.EndOrError = false
 
-  get finished() {
-    return this._endReason
-  }
+  constructor(private _opts: SourceStateOption = {}) {}
 
-  get endReason() {
+  get finished() {
     return this._endReason
   }
 
@@ -51,8 +53,13 @@ export class SourceState {
   }
 
   ended(request: pull.EndOrError = true) {
-    this._sourceEnding = false
-    this._sourceAborting = false
-    this._endReason = request
+    const isFirst = !this._endReason
+    if (isFirst) {
+      this._sourceEnding = false
+      this._sourceAborting = false
+      this._endReason = request
+      this._opts.onEnd?.(trueToNull(request))
+    }
+    return isFirst
   }
 }
