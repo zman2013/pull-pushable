@@ -8,7 +8,7 @@ describe('pushable', () => {
     const buf = pushable()
     const source = pull(buf, probe)
     buf.end()
-    buf.push(1)
+    expect(buf.push(1)).toBeFalsy()
 
     source(null, function(end, data) {
       probe.terminate()

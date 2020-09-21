@@ -61,10 +61,11 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
   const push = (data: T, bufferedCb?: BufferItemCallback) => {
     logger.info('push(data=%o), ended: %o', data, _sourceState)
-    if (!_sourceState.normal) return
+    if (!_sourceState.normal) return false
 
     _buffer.push([data, bufferedCb])
     drain()
+    return true
   }
 
   const read: Read<T> = (abort: pull.Abort, cb: pull.SourceCallback<T>) => {

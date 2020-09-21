@@ -15,7 +15,7 @@ describe('pushable', () => {
 
     const source = pull(buf, probe)
 
-    buf.push(1)
+    expect(buf.push(1)).toBeTruthy()
     expect(buf.buffer).toEqual([[1, undefined]])
 
     pull(
