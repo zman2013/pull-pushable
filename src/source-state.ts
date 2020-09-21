@@ -47,7 +47,7 @@ export class SourceState {
       // even in the ending state, abort has higher priority.
       return false
     }
-
+    this._sourceEnding = false
     this._sourceAborting = request
     return true
   }
