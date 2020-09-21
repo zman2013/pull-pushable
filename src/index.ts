@@ -32,15 +32,16 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   let _onclose: OnClose | undefined
   let _buffer: BufferItem<T>[] = []
 
-  const _sourceState = new SourceState()
-  let _cbs: pull.SourceCallback<T>[] = []
-
   if (typeof name === 'function') {
     _onclose = name
     name = undefined
   } else {
     _onclose = onclose
   }
+
+  const _sourceState = new SourceState({ onEnd: _onclose })
+  let _cbs: pull.SourceCallback<T>[] = []
+
   _name = name || getPushableName()
   let logger = DefaultLogger.ns(_name)
 
@@ -100,7 +101,6 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
       }
 
       _sourceState.ended(abort)
-      _onclose?.(trueToNull(_sourceState.finished))
       return
     }
 
@@ -125,7 +125,6 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
         _cbs.shift()?.(end)
       }
       _sourceState.ended(end)
-      _onclose?.(trueToNull(_sourceState.finished))
     }
   }
   return read
