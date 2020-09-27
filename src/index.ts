@@ -80,6 +80,7 @@ export function pushable<T>(
   }
 
   const read: Read<T> = (abort: pull.Abort, cb: pull.SourceCallback<T>) => {
+    console.log('readxxx')
     logger.info('read(abort=%o)', abort)
     if (_sourceState.finished) {
       return cb(_sourceState.finished)
@@ -90,15 +91,17 @@ export function pushable<T>(
     if (abort) {
       _sourceState.askAbort(abort)
     } else {
-      _onRead?.((end, data) => {
-        if (end) {
-          _sourceState.askEnd(end)
-        } else if (typeof data !== 'undefined') {
-          push(data)
-        }
-      })
-      drain()
-      return
+      if (_onRead !== undefined) {
+        _onRead((end, data) => {
+          if (end) {
+            _sourceState.askEnd(end)
+          } else if (typeof data !== 'undefined') {
+            push(data)
+          }
+          drain()
+        })
+        return
+      }
     }
 
     drain()
