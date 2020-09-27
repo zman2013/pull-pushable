@@ -1,7 +1,10 @@
 import * as pull from 'pull-stream'
 import { Debug } from '@jacobbubu/debug'
-import { SourceState } from './source-state'
+import { State } from './state'
 import { trueToNull } from './utils'
+import { Options } from '@jacobbubu/pull-stream-protocol-checker'
+
+export * from './state'
 
 const getPushableName = (function() {
   let counter = 1
@@ -9,6 +12,8 @@ const getPushableName = (function() {
 })()
 
 type OnClose = (err?: pull.EndOrError) => void
+type OnReadCallback<T> = (end?: pull.EndOrError, data?: T) => void
+type OnRead<T> = (cb: OnReadCallback<T>) => void
 
 const DefaultLogger = Debug.create('pushable')
 
@@ -26,23 +31,29 @@ export interface Read<T> {
   abort: (end?: pull.EndOrError) => void
   push: (data: T, bufferedCb?: BufferItemCallback) => void
   buffer: BufferItem<T>[]
+  finished: () => pull.EndOrError
 }
-export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T> {
+export function pushable<T>(
+  name?: string | OnClose,
+  onClose?: OnClose,
+  onRead?: OnRead<T>
+): Read<T> {
   let _name: string
-  let _onclose: OnClose | undefined
+  let _onClose: OnClose | undefined
+  if (typeof name === 'string') {
+    _name = name
+    _onClose = onClose
+  } else {
+    _name = getPushableName()
+    _onClose = name
+  }
+  let _onRead = onRead
+
   let _buffer: BufferItem<T>[] = []
 
-  if (typeof name === 'function') {
-    _onclose = name
-    name = undefined
-  } else {
-    _onclose = onclose
-  }
-
-  const _sourceState = new SourceState({ onEnd: _onclose })
+  const _sourceState = new State({ onEnd: _onClose })
   let _cbs: pull.SourceCallback<T>[] = []
 
-  _name = name || getPushableName()
   let logger = DefaultLogger.ns(_name)
 
   const end = (end?: pull.EndOrError) => {
@@ -78,7 +89,18 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
 
     if (abort) {
       _sourceState.askAbort(abort)
+    } else {
+      _onRead?.((end, data) => {
+        if (end) {
+          _sourceState.askEnd(end)
+        } else if (typeof data !== 'undefined') {
+          push(data)
+        }
+      })
+      drain()
+      return
     }
+
     drain()
   }
 
@@ -86,6 +108,7 @@ export function pushable<T>(name?: string | OnClose, onclose?: OnClose): Read<T>
   read.abort = abort
   read.push = push
   read.buffer = _buffer
+  read.finished = () => _sourceState.finished
 
   const drain = () => {
     if (_sourceState.aborting) {
